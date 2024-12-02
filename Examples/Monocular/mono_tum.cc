@@ -23,6 +23,7 @@
 #include<algorithm>
 #include<fstream>
 #include<chrono>
+#include"Perf.h"
 
 #include<opencv2/core/core.hpp>
 
@@ -30,8 +31,12 @@
 
 using namespace std;
 
+int last_image = 0;
+
 void LoadImages(const string &strFile, vector<string> &vstrImageFilenames,
                 vector<double> &vTimestamps);
+
+int image_num;
 
 int main(int argc, char **argv)
 {
@@ -62,6 +67,8 @@ int main(int argc, char **argv)
 
     // Main loop
     cv::Mat im;
+   
+
     for(int ni=0; ni<nImages; ni++)
     {
         // Read image from file
@@ -74,7 +81,9 @@ int main(int argc, char **argv)
                  << string(argv[3]) << "/" << vstrImageFilenames[ni] << endl;
             return 1;
         }
-
+        if(ni == nImages / 5 * 4) OUTPUT_DATA = 1;
+        else OUTPUT_DATA = 0;
+        
 #ifdef COMPILEDWITHC11
         std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
 #else

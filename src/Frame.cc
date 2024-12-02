@@ -22,6 +22,7 @@
 #include "Converter.h"
 #include "ORBmatcher.h"
 #include <thread>
+#include "Perf.h"
 
 namespace ORB_SLAM2
 {
@@ -170,7 +171,7 @@ Frame::Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const double &timeSt
     AssignFeaturesToGrid();
 }
 
-
+        Perf orbPerfaaaa("Frame ExtractORB");
 Frame::Frame(const cv::Mat &imGray, const double &timeStamp, ORBextractor* extractor,ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth)
     :mpORBvocabulary(voc),mpORBextractorLeft(extractor),mpORBextractorRight(static_cast<ORBextractor*>(NULL)),
      mTimeStamp(timeStamp), mK(K.clone()),mDistCoef(distCoef.clone()), mbf(bf), mThDepth(thDepth)
@@ -188,7 +189,15 @@ Frame::Frame(const cv::Mat &imGray, const double &timeStamp, ORBextractor* extra
     mvInvLevelSigma2 = mpORBextractorLeft->GetInverseScaleSigmaSquares();
 
     // ORB extraction
+    #ifdef OPTION_PERF_TIMING
+
+        orbPerfaaaa.perfStartTime();
+    #endif
     ExtractORB(0,imGray);
+    #ifdef OPTION_PERF_TIMING
+        orbPerfaaaa.perfEndTime();
+        orbPerfaaaa.perfSummerTime();
+    #endif
 
     N = mvKeys.size();
 

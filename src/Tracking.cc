@@ -36,6 +36,7 @@
 #include<iostream>
 
 #include<mutex>
+#include <include/Perf.h>
 
 
 using namespace std;
@@ -234,6 +235,11 @@ cv::Mat Tracking::GrabImageRGBD(const cv::Mat &imRGB,const cv::Mat &imD, const d
     return mCurrentFrame.mTcw.clone();
 }
 
+            Perf TrackLocalMapPerf("Tracking TrackLocalMapPerf");
+                Perf GrabImageMonocularPerf("GrabImageMonocular Track");
+                Perf TrackWithMotionModelPerf("Tracking TrackWithMotionModelPerf");
+                Perf TrackReferenceKeyFramePerf("Tracking TrackReferenceKeyFrame");
+                Perf RelocalizationPerf("Tracking RelocalizationPerf");
 
 cv::Mat Tracking::GrabImageMonocular(const cv::Mat &im, const double &timestamp)
 {
@@ -258,9 +264,15 @@ cv::Mat Tracking::GrabImageMonocular(const cv::Mat &im, const double &timestamp)
         mCurrentFrame = Frame(mImGray,timestamp,mpIniORBextractor,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth);
     else
         mCurrentFrame = Frame(mImGray,timestamp,mpORBextractorLeft,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth);
+#ifdef OPTION_PERF_TIMING
 
+    GrabImageMonocularPerf.perfStartTime();
+#endif
     Track();
-
+#ifdef OPTION_PERF_TIMING
+    GrabImageMonocularPerf.perfEndTime();
+    GrabImageMonocularPerf.perfSummerTime();
+#endif
     return mCurrentFrame.mTcw.clone();
 }
 
@@ -306,18 +318,42 @@ void Tracking::Track()
 
                 if(mVelocity.empty() || mCurrentFrame.mnId<mnLastRelocFrameId+2)
                 {
+                    #ifdef OPTION_PERF_TIMING
+                        
+                        TrackReferenceKeyFramePerf.perfStartTime();
+                    #endif
                     bOK = TrackReferenceKeyFrame();
+                    #ifdef OPTION_PERF_TIMING
+                        TrackReferenceKeyFramePerf.perfEndTime();
+                        TrackReferenceKeyFramePerf.perfSummerTime();
+                    #endif
                 }
                 else
                 {
+                    #ifdef OPTION_PERF_TIMING
+                        
+                        TrackWithMotionModelPerf.perfStartTime();
+                    #endif
                     bOK = TrackWithMotionModel();
+                    #ifdef OPTION_PERF_TIMING
+                        TrackWithMotionModelPerf.perfEndTime();
+                        TrackWithMotionModelPerf.perfSummerTime();
+                    #endif
                     if(!bOK)
                         bOK = TrackReferenceKeyFrame();
                 }
             }
             else
             {
+                #ifdef OPTION_PERF_TIMING
+                                
+                                RelocalizationPerf.perfStartTime();
+                #endif
                 bOK = Relocalization();
+                #ifdef OPTION_PERF_TIMING
+                RelocalizationPerf.perfEndTime();
+                RelocalizationPerf.perfSummerTime();
+                #endif
             }
         }
         else
@@ -394,6 +430,11 @@ void Tracking::Track()
 
         mCurrentFrame.mpReferenceKF = mpReferenceKF;
 
+        #ifdef OPTION_PERF_TIMING
+
+            TrackLocalMapPerf.perfStartTime();
+        #endif
+
         // If we have an initial estimation of the camera pose and matching. Track the local map.
         if(!mbOnlyTracking)
         {
@@ -408,6 +449,11 @@ void Tracking::Track()
             if(bOK && !mbVO)
                 bOK = TrackLocalMap();
         }
+
+        #ifdef OPTION_PERF_TIMING
+            TrackLocalMapPerf.perfEndTime();
+            TrackLocalMapPerf.perfSummerTime();
+        #endif
 
         if(bOK)
             mState = OK;
@@ -927,17 +973,45 @@ bool Tracking::TrackWithMotionModel()
     return nmatchesMap>=10;
 }
 
+Perf orbPerf1("TrackLocalMap SearchLocalPoints");
+Perf TrackLocalMapPerfa("TrackLocalMap UpdateLocalMap");
+Perf orbPerf2bbb("TrackLocalMap PoseOptimization");
+
 bool Tracking::TrackLocalMap()
 {
     // We have an estimation of the camera pose and some map points tracked in the frame.
     // We retrieve the local map and try to find matches to points in the local map.
-
+    #ifdef OPTION_PERF_TIMING
+        
+        TrackLocalMapPerfa.perfStartTime();
+    #endif
     UpdateLocalMap();
+    #ifdef OPTION_PERF_TIMING
+        TrackLocalMapPerfa.perfEndTime();
+        TrackLocalMapPerfa.perfSummerTime();
+    #endif
 
+    #ifdef OPTION_PERF_TIMING
+        
+        orbPerf1.perfStartTime();
+    #endif
     SearchLocalPoints();
+    #ifdef OPTION_PERF_TIMING
+        orbPerf1.perfEndTime();
+        orbPerf1.perfSummerTime();
+    #endif
 
     // Optimize Pose
+    #ifdef OPTION_PERF_TIMING
+
+        orbPerf2bbb.perfStartTime();
+    #endif
     Optimizer::PoseOptimization(&mCurrentFrame);
+    #ifdef OPTION_PERF_TIMING
+        orbPerf2bbb.perfEndTime();
+        orbPerf2bbb.perfSummerTime();
+    #endif
+
     mnMatchesInliers = 0;
 
     // Update MapPoints Statistics

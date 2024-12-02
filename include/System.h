@@ -25,6 +25,7 @@
 #include<string>
 #include<thread>
 #include<opencv2/core/core.hpp>
+#include <unistd.h>
 
 #include "Tracking.h"
 #include "FrameDrawer.h"
@@ -35,6 +36,7 @@
 #include "KeyFrameDatabase.h"
 #include "ORBVocabulary.h"
 #include "Viewer.h"
+#include<unistd.h>
 
 namespace ORB_SLAM2
 {

@@ -24,6 +24,7 @@
 #include "Optimizer.h"
 
 #include<mutex>
+#include <include/Perf.h>
 
 namespace ORB_SLAM2
 {
@@ -44,6 +45,8 @@ void LocalMapping::SetTracker(Tracking *pTracker)
     mpTracker=pTracker;
 }
 
+            Perf orbPerf("LocalMapping all");
+                    Perf orbPerf2("LocalMapping LocalBundleAdjustment");
 void LocalMapping::Run()
 {
 
@@ -51,6 +54,10 @@ void LocalMapping::Run()
 
     while(1)
     {
+        #ifdef OPTION_PERF_TIMING
+
+            orbPerf.perfStartTime();
+        #endif
         // Tracking will see that Local Mapping is busy
         SetAcceptKeyFrames(false);
 
@@ -77,8 +84,16 @@ void LocalMapping::Run()
             if(!CheckNewKeyFrames() && !stopRequested())
             {
                 // Local BA
+                #ifdef OPTION_PERF_TIMING
+
+                    orbPerf2.perfStartTime();
+                #endif
                 if(mpMap->KeyFramesInMap()>2)
                     Optimizer::LocalBundleAdjustment(mpCurrentKeyFrame,&mbAbortBA, mpMap);
+                #ifdef OPTION_PERF_TIMING
+                    orbPerf2.perfEndTime();
+                    orbPerf2.perfSummerTime();
+                #endif
 
                 // Check redundant local Keyframes
                 KeyFrameCulling();
@@ -101,6 +116,10 @@ void LocalMapping::Run()
 
         // Tracking will see that Local Mapping is busy
         SetAcceptKeyFrames(true);
+        #ifdef OPTION_PERF_TIMING
+            orbPerf.perfEndTime();
+            orbPerf.perfSummerTime();
+        #endif
 
         if(CheckFinish())
             break;
