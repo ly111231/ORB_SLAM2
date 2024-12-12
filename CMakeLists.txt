@@ -72,6 +72,7 @@ src/Sim3Solver.cc
 src/Initializer.cc
 src/Viewer.cc
 src/Perf.cc
+src/doslam_class.cc
 )
 
 target_link_libraries(${PROJECT_NAME}

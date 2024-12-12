@@ -25,7 +25,7 @@
 #include <list>
 #include <opencv/cv.h>
 
-
+# define USE_ORBSLAM2 1
 namespace ORB_SLAM2
 {
 
@@ -83,7 +83,12 @@ public:
     }
 
     std::vector<cv::Mat> mvImagePyramid;
+    #if USE_ORBSLAM2
+    void ComputeKeyPointsDOSLAM2(std::vector<std::vector<cv::KeyPoint> >& allKeypoints);
+    void computeDescriptorsDOSLAM2(cv::Mat& image, std::vector<cv::KeyPoint>& keypoints, cv::Mat& descriptors,
+                                     const std::vector<cv::Point>& pattern, int level);
 
+    #endif
 protected:
 
     void ComputePyramid(cv::Mat image);

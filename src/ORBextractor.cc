@@ -62,13 +62,21 @@
 
 #include "ORBextractor.h"
 #include "Reference.h"
+//===========add==========
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <unistd.h>
+#include "doslam.h"
+#include <stdint.h>
+#include "doslam_class.h"
+//========================
 
 
 using namespace cv;
 using namespace std;
 
 #define USE_ORBSLAM 1
-
+#define USE_ORBSLAM2 1  // USE_ORBSLAM 和 USE_ORBSLAM2 同时打开 fpga 计算特征提取
 
 // #if USE_ORBSLAM
 
@@ -79,6 +87,9 @@ using namespace std;
 
 
 // #endif
+#if USE_ORBSLAM2
+    doslam kr260;
+#endif
 
 namespace ORB_SLAM2
 {
@@ -138,9 +149,9 @@ static void computeOrbDescriptor(const KeyPoint& kpt,
     {
         int t0, t1, val;
         t0 = GET_VALUE(0); t1 = GET_VALUE(1);
-        val = t0 < t1;
+        val = t0 < t1;  
         t0 = GET_VALUE(2); t1 = GET_VALUE(3);
-        val |= (t0 < t1) << 1;
+        val |= (t0 < t1) << 1;      // '|=' 按位或操作 
         t0 = GET_VALUE(4); t1 = GET_VALUE(5);
         val |= (t0 < t1) << 2;
         t0 = GET_VALUE(6); t1 = GET_VALUE(7);
@@ -1087,44 +1098,101 @@ vector<cv::KeyPoint> ORBextractor::DistributeOctTree(const vector<cv::KeyPoint>&
         return vector<KeyPoint>(sortedKeyPoints.begin(), sortedKeyPoints.begin() + K);
     }
 
-    void ORBextractor::ComputeKeyPointsDOSLAM(vector<vector<KeyPoint> >& allKeypoints)
+void ORBextractor::ComputeKeyPointsDOSLAM(vector<vector<KeyPoint> >& allKeypoints)
+{
+    allKeypoints.resize(nlevels);
+    const float W = 30;
+    for (int level = 0; level < nlevels; ++level)
     {
-        allKeypoints.resize(nlevels);
-
-        const float W = 30;
-
-        for (int level = 0; level < nlevels; ++level)
+        const int minBorderX = EDGE_THRESHOLD-3;
+        const int minBorderY = minBorderX;
+        const int maxBorderX = mvImagePyramid[level].cols-EDGE_THRESHOLD+3;
+        const int maxBorderY = mvImagePyramid[level].rows-EDGE_THRESHOLD+3;
+        vector<cv::KeyPoint> vToDistributeKeys;
+        vToDistributeKeys.reserve(nfeatures*10);
+        
+        FAST(mvImagePyramid[level].rowRange(minBorderY,maxBorderY).colRange(minBorderX,maxBorderX),
+             vToDistributeKeys,iniThFAST,true);
+        vector<KeyPoint> & keypoints = allKeypoints[level];
+        keypoints.reserve(nfeatures);
+        keypoints = keyPointSortTopK(vToDistributeKeys, mnFeaturesPerLevel[level]);
+        const int scaledPatchSize = PATCH_SIZE*mvScaleFactor[level];
+        // Add border to coordinates and scale information
+        const int nkps = keypoints.size();
+        for(int i=0; i<nkps ; i++)
         {
-            const int minBorderX = EDGE_THRESHOLD-3;
-            const int minBorderY = minBorderX;
-            const int maxBorderX = mvImagePyramid[level].cols-EDGE_THRESHOLD+3;
-            const int maxBorderY = mvImagePyramid[level].rows-EDGE_THRESHOLD+3;
-
-            vector<cv::KeyPoint> vToDistributeKeys;
-            vToDistributeKeys.reserve(nfeatures*10);
-
-            FAST(mvImagePyramid[level].rowRange(minBorderY,maxBorderY).colRange(minBorderX,maxBorderX),
-                 vToDistributeKeys,iniThFAST,true);
-
-            vector<KeyPoint> & keypoints = allKeypoints[level];
-            keypoints.reserve(nfeatures);
-
-            keypoints = keyPointSortTopK(vToDistributeKeys, mnFeaturesPerLevel[level]);
-
-            const int scaledPatchSize = PATCH_SIZE*mvScaleFactor[level];
-
-            // Add border to coordinates and scale information
-            const int nkps = keypoints.size();
-            for(int i=0; i<nkps ; i++)
-            {
-                keypoints[i].pt.x+=minBorderX;
-                keypoints[i].pt.y+=minBorderY;
-                keypoints[i].octave=level;
-                keypoints[i].size = scaledPatchSize;
-            }
+            keypoints[i].pt.x+=minBorderX;
+            keypoints[i].pt.y+=minBorderY;
+            keypoints[i].octave=level;
+            keypoints[i].size = scaledPatchSize;
         }
     }
+}
+#if USE_ORBSLAM2
+// todo
+void ORBextractor::ComputeKeyPointsDOSLAM2(vector<vector<KeyPoint> >& allKeypoints){
+    
+    allKeypoints.resize(nlevels);
 
+    //第一曾
+    kr260.init_user_data(&kr260.user_data);
+    kr260.work(&kr260.user_data);
+    // report(&user_data);
+    kr260.orb_addr[0] = kr260.doslam_result + kr260.user_data.dmaOrbWriteAddr;
+    kr260.orb_unm[0] = kr260.user_data.outputLength;
+    unsigned long end_time_0 = kr260.get_time_us();
+
+
+    kr260.next_user_data(&kr260.user_data);
+    kr260.work(&kr260.user_data);
+    // report(&user_data);
+    kr260.orb_addr[1] = kr260.doslam_result + kr260.user_data.dmaOrbWriteAddr; 
+    kr260.orb_unm[1] = kr260.user_data.outputLength;
+    unsigned long end_time_1 = kr260.get_time_us();
+
+    kr260.next_user_data(&kr260.user_data);
+    kr260.work(&kr260.user_data);
+    // report(&user_data);
+    kr260.orb_addr[2] = kr260.doslam_result + kr260.user_data.dmaOrbWriteAddr; 
+    kr260.orb_unm[2] = kr260.user_data.outputLength;
+    unsigned long end_time_2 = kr260.get_time_us();
+
+    kr260.next_user_data(&kr260.user_data);
+    kr260.work(&kr260.user_data);
+    kr260.orb_addr[3] = kr260.doslam_result + kr260.user_data.dmaOrbWriteAddr; 
+    kr260.orb_unm[3] = kr260.user_data.outputLength;
+
+
+
+    for (int level = 0; level < nlevels; ++level)
+    {
+        const int minBorderX = EDGE_THRESHOLD-3;
+        const int minBorderY = minBorderX;
+        // const int maxBorderX = mvImagePyramid[level].cols-EDGE_THRESHOLD+3;
+        // const int maxBorderY = mvImagePyramid[level].rows-EDGE_THRESHOLD+3;
+        // vector<cv::KeyPoint> vToDistributeKeys;
+        // vToDistributeKeys.reserve(nfeatures*10);
+      
+        // FAST(mvImagePyramid[level].rowRange(minBorderY,maxBorderY).colRange(minBorderX,maxBorderX),
+        //      vToDistributeKeys,iniThFAST,true);
+        vector<KeyPoint> & keypoints = allKeypoints[level];
+        keypoints.reserve(nfeatures);
+        // keypoints = keyPointSortTopK(vToDistributeKeys, mnFeaturesPerLevel[level]);
+        const int scaledPatchSize = PATCH_SIZE*mvScaleFactor[level];
+        // Add border to coordinates and scale information
+        const int nkps = (int)kr260.orb_unm[level];
+        for(int i=0; i<nkps ; i++)
+        {
+            // keypoints[i].pt.x+=minBorderX;
+            // keypoints[i].pt.y+=minBorderY;
+            keypoints[i].pt.x = minBorderX + (int)(kr260.orb_addr[level] + i*64 + 4);
+            keypoints[i].pt.y = minBorderY + (int)(kr260.orb_addr[level] + i*64 + 8); 
+            keypoints[i].octave=level;
+            keypoints[i].size = scaledPatchSize;
+        }
+    }
+}
+#endif
 void ORBextractor::ComputeKeyPointsOctTree(vector<vector<KeyPoint> >& allKeypoints)
 {
     allKeypoints.resize(nlevels);
@@ -1402,6 +1470,17 @@ static void computeDescriptorsDOSLAM(Mat& image, vector<KeyPoint>& keypoints, Ma
     for (size_t i = 0; i < keypoints.size(); i++)
         computeOrbDescriptorDOSALM(keypoints[i], image, &pattern[0], descriptors.ptr((int)i));
 }
+#if USE_ORBSLAM2
+void computeDescriptorsDOSLAM2(Mat& image, vector<KeyPoint>& keypoints, Mat& descriptors,
+                                     const vector<Point>& pattern, int level)
+{
+    descriptors = Mat::zeros((int)keypoints.size(), 32, CV_8UC1);
+
+    for (size_t i = 0; i < keypoints.size(); i++)
+        // computeOrbDescriptorDOSALM(keypoints[i], image, &pattern[0], descriptors.ptr((int)i));
+        std::memcpy(descriptors.ptr((int)i), (uchar* )(kr260.orb_addr[level] + i * 64 + 12), 32);
+}
+#endif
 
 static void computeDescriptors(const Mat& image, vector<KeyPoint>& keypoints, Mat& descriptors,
                                const vector<Point>& pattern)
@@ -1427,11 +1506,16 @@ void ORBextractor::operator()( InputArray _image, InputArray _mask, vector<KeyPo
     vector < vector<KeyPoint> > allKeypoints;
 
 
-    #if USE_ORBSLAM
+    #if USE_ORBSLAM2
 
+    size_t image_size = image.total() * image.elemSize(); // 总像素数 × 每像素字节数
+    memcpy(kr260.doslam_image, image.data, image_size);
+    //ComputeKeyPointsOctTree(allKeypoints);
+    ComputeKeyPointsDOSLAM2(allKeypoints);
+
+    #elif USE_ORBSLAM
     //ComputeKeyPointsOctTree(allKeypoints);
     ComputeKeyPointsDOSLAM(allKeypoints);
-
     #else
     ComputeKeyPointsOctTree(allKeypoints);
     //ComputeKeyPointsDOSLAM(allKeypoints);
@@ -1439,7 +1523,7 @@ void ORBextractor::operator()( InputArray _image, InputArray _mask, vector<KeyPo
     #endif
 
     //ComputeKeyPointsOld(allKeypoints);
-
+    //todo2
     Mat descriptors;
 
     int nkeypoints = 0;
@@ -1469,9 +1553,12 @@ void ORBextractor::operator()( InputArray _image, InputArray _mask, vector<KeyPo
         Mat workingMat = mvImagePyramid[level].clone();
 
         // Compute the descriptors
-        #if USE_ORBSLAM
+        #if USE_ORBSLAM2
+             Mat desc = descriptors.rowRange(offset, offset + nkeypointsLevel);  // 引用赋值
+            computeDescriptorsDOSLAM2(workingMat, keypoints, desc, pattern, level);
+        #elif USE_ORBSLAM
             GaussianBlur(workingMat, workingMat, Size(7, 7), 2, 2, BORDER_REFLECT_101);
-            Mat desc = descriptors.rowRange(offset, offset + nkeypointsLevel);
+            Mat desc = descriptors.rowRange(offset, offset + nkeypointsLevel);  // 引用赋值
             computeDescriptors(workingMat, keypoints, desc, pattern);
         #else
             Reference ref;
@@ -1488,7 +1575,7 @@ void ORBextractor::operator()( InputArray _image, InputArray _mask, vector<KeyPo
             float scale = mvScaleFactor[level]; //getScale(level, firstLevel, scaleFactor);
             for (vector<KeyPoint>::iterator keypoint = keypoints.begin(),
                  keypointEnd = keypoints.end(); keypoint != keypointEnd; ++keypoint)
-                keypoint->pt *= scale;
+                keypoint->pt *= scale;  //todo ,不知是否保留
         }
         // And add the keypoints to the output
         _keypoints.insert(_keypoints.end(), keypoints.begin(), keypoints.end());
@@ -1503,13 +1590,14 @@ void ORBextractor::ComputePyramid(cv::Mat image)
         Size sz(cvRound((float)image.cols*scale), cvRound((float)image.rows*scale));
         Size wholeSize(sz.width + EDGE_THRESHOLD*2, sz.height + EDGE_THRESHOLD*2);
         Mat temp(wholeSize, image.type()), masktemp;
+        // temp 图像的有效区域（去除额外边框的部分）存储到 mvImagePyramid[level] 中
         mvImagePyramid[level] = temp(Rect(EDGE_THRESHOLD, EDGE_THRESHOLD, sz.width, sz.height));
 
         // Compute the resized image
         if( level != 0 )
         {
             resize(mvImagePyramid[level-1], mvImagePyramid[level], sz, 0, 0, INTER_LINEAR);
-
+            // 加边框，反射填充
             copyMakeBorder(mvImagePyramid[level], temp, EDGE_THRESHOLD, EDGE_THRESHOLD, EDGE_THRESHOLD, EDGE_THRESHOLD,
                            BORDER_REFLECT_101+BORDER_ISOLATED);            
         }
