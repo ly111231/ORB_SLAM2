@@ -85,8 +85,8 @@ public:
     std::vector<cv::Mat> mvImagePyramid;
     #if USE_ORBSLAM2
     void ComputeKeyPointsDOSLAM2(std::vector<std::vector<cv::KeyPoint> >& allKeypoints);
-    void computeDescriptorsDOSLAM2(cv::Mat& image, std::vector<cv::KeyPoint>& keypoints, cv::Mat& descriptors,
-                                     const std::vector<cv::Point>& pattern, int level);
+    // void computeDescriptorsDOSLAM2(cv::Mat& image, std::vector<cv::KeyPoint>& keypoints, cv::Mat& descriptors,
+                                    //  const std::vector<cv::Point>& pattern, int level);
 
     #endif
 protected:

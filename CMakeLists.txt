@@ -4,14 +4,19 @@ project(ORB_SLAM2)
 IF(NOT CMAKE_BUILD_TYPE)
   SET(CMAKE_BUILD_TYPE Release)
 ENDIF()
-
+#========================================================================
+set(CMAKE_C_COMPILER /opt/gcc-12.2/bin/gcc)
+set(CMAKE_CXX_COMPILER /opt/gcc-12.2/bin/g++)
+#========================================================================
 MESSAGE("Build type: " ${CMAKE_BUILD_TYPE})
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}  -Wall  -O3")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall   -O3")
 
 #========================================================================
-set(CMAKE_PREFIX_PATH "/usr/local/eigen3_aarch64" ${CMAKE_PREFIX_PATH})																
+set(CMAKE_PREFIX_PATH "/usr/local/eigen3_aarch64" ${CMAKE_PREFIX_PATH})		
+set(Pangolin_DIR /usr/local/lib/cmake/pangolin)					
+set(OpenCV_DIR /usr/local/opencv_aarch64/share/opencv4)									
 #========================================================================
 # Check C++11 or C++0x support
 include(CheckCXXCompilerFlag)
@@ -44,6 +49,7 @@ find_package(Pangolin REQUIRED)
 
 include_directories(
 ${PROJECT_SOURCE_DIR}
+${PROJECT_SOURCE_DIR}/driver_DOSLAMDT
 ${PROJECT_SOURCE_DIR}/include
 ${EIGEN3_INCLUDE_DIR}
 ${Pangolin_INCLUDE_DIRS}
@@ -74,7 +80,10 @@ src/Viewer.cc
 src/Perf.cc
 src/doslam_class.cc
 )
-
+#========================================================================
+link_directories(/opt/glibc-2.38/lib)
+link_directories(/opt/gcc-12.2/lib64)
+#========================================================================
 target_link_libraries(${PROJECT_NAME}
 ${OpenCV_LIBS}
 ${EIGEN3_LIBS}

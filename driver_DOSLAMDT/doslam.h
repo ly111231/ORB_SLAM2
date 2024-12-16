@@ -1,3 +1,5 @@
+#ifndef DOSLAM_H
+#define DOSLAM_H
 //data
 #define START_W             0x0         
 #define sizeInRow_W         0x4
@@ -83,3 +85,4 @@ typedef struct doslam_ioctl_data {
     uint sizeOutRow;
     uint sizeOutCol;
 } doslam_ioctl_data;
+#endif

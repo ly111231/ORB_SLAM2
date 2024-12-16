@@ -5,6 +5,8 @@
 #include <unistd.h>
 #include "doslam_class.h"
 #include <stdint.h>
+#include <sys/time.h>
+#include <sys/ioctl.h>
 
 int doslam::matchMask(int x) {
 
@@ -85,7 +87,7 @@ void doslam::saveToFile(const char* filename, const void* buf, size_t size) {
     printf("Data saved to file successfully\n");
 }
 
-void doslam::init_doslam(){
+int doslam::init_doslam(){
     // 打开设备文件
     fd_ctr = open(DEVICE_CTR_FILE, O_RDWR);
     if (fd_ctr < 0) {
@@ -175,4 +177,12 @@ void doslam::report(doslam_ioctl_data *user_data){
     printf("outputLength %d\n",      user_data->outputLength);
     printf("sizeOutRow %d\n",        user_data->sizeOutRow);
     printf("sizeOutCol %d\n",        user_data->sizeOutCol);
+}
+doslam::doslam(/* args */) : fd_ctr(-1), fd_data(-1), doslam_image(nullptr), doslam_result(nullptr)
+{
+    init_doslam();
+}
+
+doslam::~doslam()
+{
 }

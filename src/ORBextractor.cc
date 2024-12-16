@@ -1185,8 +1185,8 @@ void ORBextractor::ComputeKeyPointsDOSLAM2(vector<vector<KeyPoint> >& allKeypoin
         {
             // keypoints[i].pt.x+=minBorderX;
             // keypoints[i].pt.y+=minBorderY;
-            keypoints[i].pt.x = minBorderX + (int)(kr260.orb_addr[level] + i*64 + 4);
-            keypoints[i].pt.y = minBorderY + (int)(kr260.orb_addr[level] + i*64 + 8); 
+            keypoints[i].pt.x = minBorderX + (int)*(kr260.orb_addr[level] + i*64 + 4);
+            keypoints[i].pt.y = minBorderY + (int)*(kr260.orb_addr[level] + i*64 + 8); 
             keypoints[i].octave=level;
             keypoints[i].size = scaledPatchSize;
         }
@@ -1470,8 +1470,8 @@ static void computeDescriptorsDOSLAM(Mat& image, vector<KeyPoint>& keypoints, Ma
     for (size_t i = 0; i < keypoints.size(); i++)
         computeOrbDescriptorDOSALM(keypoints[i], image, &pattern[0], descriptors.ptr((int)i));
 }
-#if USE_ORBSLAM2
-void computeDescriptorsDOSLAM2(Mat& image, vector<KeyPoint>& keypoints, Mat& descriptors,
+
+static void computeDescriptorsDOSLAM2(Mat& image, vector<KeyPoint>& keypoints, Mat& descriptors,
                                      const vector<Point>& pattern, int level)
 {
     descriptors = Mat::zeros((int)keypoints.size(), 32, CV_8UC1);
@@ -1480,7 +1480,7 @@ void computeDescriptorsDOSLAM2(Mat& image, vector<KeyPoint>& keypoints, Mat& des
         // computeOrbDescriptorDOSALM(keypoints[i], image, &pattern[0], descriptors.ptr((int)i));
         std::memcpy(descriptors.ptr((int)i), (uchar* )(kr260.orb_addr[level] + i * 64 + 12), 32);
 }
-#endif
+
 
 static void computeDescriptors(const Mat& image, vector<KeyPoint>& keypoints, Mat& descriptors,
                                const vector<Point>& pattern)
