@@ -25,7 +25,7 @@
 #include <list>
 #include <opencv/cv.h>
 
-# define USE_ORBSLAM2 1
+#define USE_ORBSLAM2 1
 namespace ORB_SLAM2
 {
 

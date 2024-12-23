@@ -8,6 +8,8 @@
 #include <sys/time.h>
 #include <sys/ioctl.h>
 
+#define REPORT 1
+
 int doslam::matchMask(int x) {
 
     int result;
@@ -71,7 +73,7 @@ void doslam::readRawImage(const char* filename, unsigned char* buffer, int size)
 
 void doslam::saveToFile(const char* filename, const void* buf, size_t size) {
     int fd = open(filename, O_RDWR | O_CREAT | O_TRUNC, 0644);  // 以二进制写入模式打开文件
-    if (fd == NULL) {
+    if (fd == -1) {
         perror("Error opening file");
         return;
     }
@@ -89,6 +91,11 @@ void doslam::saveToFile(const char* filename, const void* buf, size_t size) {
 
 int doslam::init_doslam(){
     // 打开设备文件
+    printf("=============1=======================\n");
+    printf("fd_ctr: %d\n", fd_ctr);
+    printf("fd_data: %d\n", fd_data);
+    printf("doslam_image: %p\n", (void*)doslam_image);
+    printf("doslam_result: %p\n", (void*)doslam_result);
     fd_ctr = open(DEVICE_CTR_FILE, O_RDWR);
     if (fd_ctr < 0) {
         perror("open");
@@ -117,9 +124,23 @@ int doslam::init_doslam(){
         close(fd_ctr);
         return -1;
     }
+    printf("--------------Initial successfully--------------\n");
+    printf("=============2=======================\n");
+    printf("fd_ctr: %d\n", fd_ctr);
+    printf("fd_data: %d\n", fd_data);
+    printf("doslam_image: %p\n", (void*)doslam_image);
+    printf("doslam_result: %p\n", (void*)doslam_result);
+    return 0;
 }
 
 void doslam::init_user_data(doslam_ioctl_data *user_data){
+    printf("Entering init_user_data\n");
+    printf("user_data: %p\n", (void*)user_data);
+    printf("siezof(*user_data) = %d \n", sizeof(*user_data));
+    if (user_data == nullptr) {
+        fprintf(stderr, "Error: user_data is null!\n");
+        return; // 或者处理错误
+    }
     user_data->sizeInRow = 480;
     user_data->sizeInCol = 640;
     user_data->threshold = 30;
@@ -139,6 +160,20 @@ void doslam::next_user_data(doslam_ioctl_data *user_data){
     user_data->dmaImageWriteAddr = temp;
 
     user_data->dmaOrbWriteAddr = user_data->dmaOrbWriteAddr + user_data->outputLength * 64;
+}
+
+void doslam::report(doslam_ioctl_data *user_data){
+    int res = ioctl(fd_ctr, 2222, &user_data);
+
+    printf("res %d\n",res);
+
+    printf("dmaImageReadReady %d\n", user_data->dmaImageReadReady);
+    printf("dmaImageWriteReady %d\n",user_data->dmaImageWriteReady);
+    printf("dmaOrbWriteReady %d\n",  user_data->dmaOrbWriteReady);
+    printf("inputLength %d\n",       user_data->inputLength);
+    printf("outputLength %d\n",      user_data->outputLength);
+    printf("sizeOutRow %d\n",        user_data->sizeOutRow);
+    printf("sizeOutCol %d\n",        user_data->sizeOutCol);
 }
 
 void doslam::work(doslam_ioctl_data *user_data){
@@ -165,22 +200,14 @@ void doslam::work(doslam_ioctl_data *user_data){
     #endif
 }
 
-void doslam::report(doslam_ioctl_data *user_data){
-    int res = ioctl(fd_ctr, 2222, &user_data);
 
-    printf("res %d\n",res);
-
-    printf("dmaImageReadReady %d\n", user_data->dmaImageReadReady);
-    printf("dmaImageWriteReady %d\n",user_data->dmaImageWriteReady);
-    printf("dmaOrbWriteReady %d\n",  user_data->dmaOrbWriteReady);
-    printf("inputLength %d\n",       user_data->inputLength);
-    printf("outputLength %d\n",      user_data->outputLength);
-    printf("sizeOutRow %d\n",        user_data->sizeOutRow);
-    printf("sizeOutCol %d\n",        user_data->sizeOutCol);
-}
 doslam::doslam(/* args */) : fd_ctr(-1), fd_data(-1), doslam_image(nullptr), doslam_result(nullptr)
 {
     init_doslam();
+    for(int i = 0; i < 4; ++i) {
+        orb_addr[i] = nullptr;
+        orb_unm[i] = 0;
+    }
 }
 
 doslam::~doslam()

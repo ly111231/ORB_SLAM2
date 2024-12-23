@@ -24,7 +24,7 @@
 #include<fstream>
 #include<chrono>
 #include"Perf.h"
-
+#include "doslam_class.h"
 #include<opencv2/core/core.hpp>
 
 #include<System.h>
@@ -37,7 +37,9 @@ void LoadImages(const string &strFile, vector<string> &vstrImageFilenames,
                 vector<double> &vTimestamps);
 
 int image_num;
-
+#if USE_ORBSLAM2
+    doslam kr260;
+#endif
 int main(int argc, char **argv)
 {
     if(argc != 4)

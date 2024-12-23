@@ -1,3 +1,5 @@
+#ifndef DOSLAM_CLASS_H
+#define DOSLAM_CLASS_H
 #include <stdio.h>
 #include <stdlib.h>
 #include <fcntl.h>
@@ -37,4 +39,4 @@ public:
     doslam(/* args */);
     ~doslam();
 };
-
+#endif

@@ -69,6 +69,7 @@
 #include "doslam.h"
 #include <stdint.h>
 #include "doslam_class.h"
+#include <mutex>
 //========================
 
 
@@ -85,10 +86,10 @@ using namespace std;
 // #else
 
 
-
+std::mutex mtx;
 // #endif
 #if USE_ORBSLAM2
-    doslam kr260;
+    extern doslam kr260;
 #endif
 
 namespace ORB_SLAM2
@@ -1133,7 +1134,13 @@ void ORBextractor::ComputeKeyPointsDOSLAM(vector<vector<KeyPoint> >& allKeypoint
 void ORBextractor::ComputeKeyPointsDOSLAM2(vector<vector<KeyPoint> >& allKeypoints){
     
     allKeypoints.resize(nlevels);
-
+    // printf("=============3=======================\n");
+    // fflush(stdout); 
+    // printf("fd_ctr: %d\n", kr260.fd_ctr);
+    // printf("fd_data: %d\n", kr260.fd_data);
+    // printf("doslam_image: %p\n", (void*)kr260.doslam_image);
+    // printf("doslam_result: %p\n", (void*)kr260.doslam_result);
+    // fflush(stdout); 
     //第一曾
     kr260.init_user_data(&kr260.user_data);
     kr260.work(&kr260.user_data);
@@ -1470,7 +1477,7 @@ static void computeDescriptorsDOSLAM(Mat& image, vector<KeyPoint>& keypoints, Ma
     for (size_t i = 0; i < keypoints.size(); i++)
         computeOrbDescriptorDOSALM(keypoints[i], image, &pattern[0], descriptors.ptr((int)i));
 }
-
+#if USE_ORBSLAM2
 static void computeDescriptorsDOSLAM2(Mat& image, vector<KeyPoint>& keypoints, Mat& descriptors,
                                      const vector<Point>& pattern, int level)
 {
@@ -1480,6 +1487,7 @@ static void computeDescriptorsDOSLAM2(Mat& image, vector<KeyPoint>& keypoints, M
         // computeOrbDescriptorDOSALM(keypoints[i], image, &pattern[0], descriptors.ptr((int)i));
         std::memcpy(descriptors.ptr((int)i), (uchar* )(kr260.orb_addr[level] + i * 64 + 12), 32);
 }
+#endif
 
 
 static void computeDescriptors(const Mat& image, vector<KeyPoint>& keypoints, Mat& descriptors,
@@ -1493,7 +1501,8 @@ static void computeDescriptors(const Mat& image, vector<KeyPoint>& keypoints, Ma
 
 void ORBextractor::operator()( InputArray _image, InputArray _mask, vector<KeyPoint>& _keypoints,
                       OutputArray _descriptors)
-{ 
+{{
+    std::lock_guard<std::mutex> lock(mtx);
     if(_image.empty())
         return;
 
@@ -1507,7 +1516,6 @@ void ORBextractor::operator()( InputArray _image, InputArray _mask, vector<KeyPo
 
 
     #if USE_ORBSLAM2
-
     size_t image_size = image.total() * image.elemSize(); // 总像素数 × 每像素字节数
     memcpy(kr260.doslam_image, image.data, image_size);
     //ComputeKeyPointsOctTree(allKeypoints);
@@ -1580,7 +1588,7 @@ void ORBextractor::operator()( InputArray _image, InputArray _mask, vector<KeyPo
         // And add the keypoints to the output
         _keypoints.insert(_keypoints.end(), keypoints.begin(), keypoints.end());
     }
-}
+}}
 
 void ORBextractor::ComputePyramid(cv::Mat image)
 {

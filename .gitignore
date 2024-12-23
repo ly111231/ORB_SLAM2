@@ -21,4 +21,8 @@ Vocabulary/ORBvoc.txt
 build/
 *~
 lib/
-
+build_original/
+driver_DOSLAMDT/*
+!driver_DOSLAMDT/*.h
+!driver_DOSLAMDT/*.c
+!driver_DOSLAMDT/Makefile
