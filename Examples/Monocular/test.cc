@@ -12,7 +12,7 @@ using namespace std;
 
 int main(){
     cv::Mat im;
-    im = cv::imread("/home/ubuntu/TUM_dataset/rgbd_dataset_freiburg1_xyz/rgb/1305031102.175304.png");
+    im = cv::imread("/home/ubuntu/TUM_dataset/rgbd_dataset_freiburg1_xyz/rgb/1305031102.211214.png");
     cv::Mat mImGray = im;
     int mbRGB = 1;
    if(mImGray.channels()==3)
@@ -29,7 +29,9 @@ int main(){
         else
             cv::cvtColor(mImGray,mImGray,CV_BGRA2GRAY);
     }
-
+     #if USE_ORBSLAM2
+        doslam::init_doslam();
+    #endif
     std::vector<cv::KeyPoint> mvKeys;
     cv::Mat mDescriptors;
     ORB_SLAM2::ORBextractor* mpORBextractorLeft = new ORB_SLAM2::ORBextractor(1000, 1.25, 4, 20, 7);;

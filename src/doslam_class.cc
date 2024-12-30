@@ -8,7 +8,12 @@
 #include <sys/time.h>
 #include <sys/ioctl.h>
 
-#define REPORT 1
+// #define REPORT 1
+
+int doslam::fd_ctr = -1;  // 静态成员变量的定义
+int doslam::fd_data = -1;
+uint8_t* doslam::doslam_image = nullptr;
+uint8_t* doslam::doslam_result = nullptr;
 
 int doslam::matchMask(int x) {
 
@@ -134,9 +139,9 @@ int doslam::init_doslam(){
 }
 
 void doslam::init_user_data(doslam_ioctl_data *user_data){
-    printf("Entering init_user_data\n");
-    printf("user_data: %p\n", (void*)user_data);
-    printf("siezof(*user_data) = %d \n", sizeof(*user_data));
+    // printf("=======================Entering init_user_data=======================\n");
+    // printf("user_data: %p\n", (void*)user_data);
+    // printf("siezof(*user_data) = %d \n", sizeof(*user_data));
     if (user_data == nullptr) {
         fprintf(stderr, "Error: user_data is null!\n");
         return; // 或者处理错误
@@ -201,9 +206,8 @@ void doslam::work(doslam_ioctl_data *user_data){
 }
 
 
-doslam::doslam(/* args */) : fd_ctr(-1), fd_data(-1), doslam_image(nullptr), doslam_result(nullptr)
+doslam::doslam(/* args */) 
 {
-    init_doslam();
     for(int i = 0; i < 4; ++i) {
         orb_addr[i] = nullptr;
         orb_unm[i] = 0;

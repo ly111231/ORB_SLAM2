@@ -70,6 +70,8 @@
 #include <stdint.h>
 #include "doslam_class.h"
 #include <mutex>
+#include <chrono>
+#include <thread>
 //========================
 
 
@@ -81,16 +83,14 @@ using namespace std;
 
 // #if USE_ORBSLAM
 
-
-
 // #else
-
-
-std::mutex mtx;
-// #endif
 #if USE_ORBSLAM2
     extern doslam kr260;
 #endif
+
+std::mutex mtx;
+// #endif
+
 
 namespace ORB_SLAM2
 {
@@ -1134,7 +1134,7 @@ void ORBextractor::ComputeKeyPointsDOSLAM(vector<vector<KeyPoint> >& allKeypoint
 void ORBextractor::ComputeKeyPointsDOSLAM2(vector<vector<KeyPoint> >& allKeypoints){
     
     allKeypoints.resize(nlevels);
-    // printf("=============3=======================\n");
+    // printf("=============3=======================nlevels = %d nfeatures = %d\n", nlevels, nfeatures);
     // fflush(stdout); 
     // printf("fd_ctr: %d\n", kr260.fd_ctr);
     // printf("fd_data: %d\n", kr260.fd_data);
@@ -1145,32 +1145,33 @@ void ORBextractor::ComputeKeyPointsDOSLAM2(vector<vector<KeyPoint> >& allKeypoin
     kr260.init_user_data(&kr260.user_data);
     kr260.work(&kr260.user_data);
     // report(&user_data);
-    kr260.orb_addr[0] = kr260.doslam_result + kr260.user_data.dmaOrbWriteAddr;
+    kr260.orb_addr[0] = doslam::doslam_result + kr260.user_data.dmaOrbWriteAddr - IMAGE_LENGTH;
     kr260.orb_unm[0] = kr260.user_data.outputLength;
-    unsigned long end_time_0 = kr260.get_time_us();
+    // unsigned long end_time_0 = kr260.get_time_us();                                                                                        
 
-
+    //22
     kr260.next_user_data(&kr260.user_data);
     kr260.work(&kr260.user_data);
     // report(&user_data);
-    kr260.orb_addr[1] = kr260.doslam_result + kr260.user_data.dmaOrbWriteAddr; 
+    kr260.orb_addr[1] = doslam::doslam_result + kr260.user_data.dmaOrbWriteAddr - IMAGE_LENGTH; 
     kr260.orb_unm[1] = kr260.user_data.outputLength;
-    unsigned long end_time_1 = kr260.get_time_us();
-
+    // unsigned long end_time_1 = kr260.get_time_us();
+    //33
     kr260.next_user_data(&kr260.user_data);
     kr260.work(&kr260.user_data);
     // report(&user_data);
-    kr260.orb_addr[2] = kr260.doslam_result + kr260.user_data.dmaOrbWriteAddr; 
+    kr260.orb_addr[2] = doslam::doslam_result + kr260.user_data.dmaOrbWriteAddr - IMAGE_LENGTH; 
     kr260.orb_unm[2] = kr260.user_data.outputLength;
-    unsigned long end_time_2 = kr260.get_time_us();
-
+    // unsigned long end_time_2 = kr260.get_time_us();
+    //44
     kr260.next_user_data(&kr260.user_data);
     kr260.work(&kr260.user_data);
-    kr260.orb_addr[3] = kr260.doslam_result + kr260.user_data.dmaOrbWriteAddr; 
+    kr260.orb_addr[3] = doslam::doslam_result + kr260.user_data.dmaOrbWriteAddr - IMAGE_LENGTH; 
     kr260.orb_unm[3] = kr260.user_data.outputLength;
 
 
-
+    static uint pic_num ;
+    pic_num = pic_num + 1;
     for (int level = 0; level < nlevels; ++level)
     {
         const int minBorderX = EDGE_THRESHOLD-3;
@@ -1185,19 +1186,37 @@ void ORBextractor::ComputeKeyPointsDOSLAM2(vector<vector<KeyPoint> >& allKeypoin
         vector<KeyPoint> & keypoints = allKeypoints[level];
         keypoints.reserve(nfeatures);
         // keypoints = keyPointSortTopK(vToDistributeKeys, mnFeaturesPerLevel[level]);
-        const int scaledPatchSize = PATCH_SIZE*mvScaleFactor[level];
+        const float scaledPatchSize = PATCH_SIZE*mvScaleFactor[level];
         // Add border to coordinates and scale information
         const int nkps = (int)kr260.orb_unm[level];
-        for(int i=0; i<nkps ; i++)
-        {
+        // printf("第%u张图片第%d层,特征点个数是%d\n", pic_num, level, nkps);
+        // printf("scaledPatchSize = %f  mvScaleFactor[level] = %f\n", scaledPatchSize, mvScaleFactor[level]);
+        for(int i=0; i<nkps ; i++){   
             // keypoints[i].pt.x+=minBorderX;
             // keypoints[i].pt.y+=minBorderY;
-            keypoints[i].pt.x = minBorderX + (int)*(kr260.orb_addr[level] + i*64 + 4);
-            keypoints[i].pt.y = minBorderY + (int)*(kr260.orb_addr[level] + i*64 + 8); 
+            // keypoints[i].pt.x = minBorderX + (float)*(kr260.orb_addr[level] + i*64 + 4);
+            // keypoints[i].pt.y = minBorderY + (float)*(kr260.orb_addr[level] + i*64 + 8);
+            keypoints[i].response = (float)*(kr260.orb_addr[level] + i*64 + 0);
+            keypoints[i].pt.x = (float)*(kr260.orb_addr[level] + i*64 + 4);
+            keypoints[i].pt.y = (float)*(kr260.orb_addr[level] + i*64 + 8);  
             keypoints[i].octave=level;
             keypoints[i].size = scaledPatchSize;
+            // if(pic_num <= 2) {
+            //     printf("(%d, %d)->", 
+            //         (int)*(kr260.orb_addr[level] + i*64 + 4),
+            //         (int)*(kr260.orb_addr[level] + i*64 + 8));
+
+            //     // 打印从偏移量 12 开始的 32 字节（假设描述符的大小为 32 字节）
+            //     for (int j = 0; j < 32; j++) {
+            //         printf("%02x", (unsigned char)*(kr260.orb_addr[level] + i*64 + 12 + j));
+            //     }
+            //     printf("\n");
+            // }
         }
+            // printf("\n===============================");
     }
+       // 等待 1 毫秒
+    // std::this_thread::sleep_for(std::chrono::milliseconds(1));
 }
 #endif
 void ORBextractor::ComputeKeyPointsOctTree(vector<vector<KeyPoint> >& allKeypoints)
@@ -1483,9 +1502,10 @@ static void computeDescriptorsDOSLAM2(Mat& image, vector<KeyPoint>& keypoints, M
 {
     descriptors = Mat::zeros((int)keypoints.size(), 32, CV_8UC1);
 
-    for (size_t i = 0; i < keypoints.size(); i++)
+    for (size_t i = 0; i < keypoints.size(); i++){
         // computeOrbDescriptorDOSALM(keypoints[i], image, &pattern[0], descriptors.ptr((int)i));
         std::memcpy(descriptors.ptr((int)i), (uchar* )(kr260.orb_addr[level] + i * 64 + 12), 32);
+    }
 }
 #endif
 
@@ -1517,7 +1537,9 @@ void ORBextractor::operator()( InputArray _image, InputArray _mask, vector<KeyPo
 
     #if USE_ORBSLAM2
     size_t image_size = image.total() * image.elemSize(); // 总像素数 × 每像素字节数
-    memcpy(kr260.doslam_image, image.data, image_size);
+    // static uint pic_num2;
+    // printf("%u张图片的字节数是%u  \n", ++pic_num2, image_size);
+    memcpy(doslam::doslam_image, image.data, image_size);
     //ComputeKeyPointsOctTree(allKeypoints);
     ComputeKeyPointsDOSLAM2(allKeypoints);
 
@@ -1576,7 +1598,9 @@ void ORBextractor::operator()( InputArray _image, InputArray _mask, vector<KeyPo
         #endif
 
         offset += nkeypointsLevel;
-
+        #if USE_ORBSLAM2
+            //nope
+        #else
         // Scale keypoint coordinates
         if (level != 0)
         {
@@ -1585,6 +1609,7 @@ void ORBextractor::operator()( InputArray _image, InputArray _mask, vector<KeyPo
                  keypointEnd = keypoints.end(); keypoint != keypointEnd; ++keypoint)
                 keypoint->pt *= scale;  //todo ,不知是否保留
         }
+        #endif
         // And add the keypoints to the output
         _keypoints.insert(_keypoints.end(), keypoints.begin(), keypoints.end());
     }

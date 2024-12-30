@@ -82,7 +82,7 @@ Frame::Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeSt
     threadRight.join();
 
     N = mvKeys.size();
-
+    printf("--==----------------------mvKeys.size() = %d----\n", N);
     if(mvKeys.empty())
         return;
 
